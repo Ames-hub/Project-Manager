@@ -1,0 +1,1 @@
+Don't delete Logs folder, it'll fuck everything. Probably..
