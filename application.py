@@ -1,4 +1,4 @@
-import os, json, logging, time, re
+import os, json, logging, time, re, inspect
 
 from logging.handlers import TimedRotatingFileHandler
 
@@ -23,7 +23,10 @@ def get_answer(question):
     # A custom "input" to prevent exceptions on CTRL + thing
     try:
         answer = input(question)
-        return answer
+        if question == "cancel":
+            return False
+        else:
+            return answer
     except KeyboardInterrupt:
         application.exit()
 
@@ -50,6 +53,9 @@ class application:
                 elif handling.lower() == "y":
                     print("Understood, Exiting program...")
                     exit()
+                # cancels should the user enter "cancel"
+                elif handling.lower() == False:
+                    return False
                 else:
                     print("Invalid input. Please try again.")
             else:
@@ -70,11 +76,63 @@ class application:
             os.system("cls" if os.name == "nt" else "clear")
             return True
 
+        # Handles the user help command
+        elif any(request.startswith(s) for s in ["help", "-help", "--help", "h", "-h", "--h"]):
+            log("Not implemented! Line 74")
+            application.console.clear()
+            # prints a 
+            print("|====================================|")
+            print("| Hello user! This is the help page. |")
+            print("|    How can I help you today?       |")
+            print("|                                    |")
+            # 2 extra spaces below to account for the /'s
+            print("|        Hint: Try \"FAQ\"             |")
+            print("|   Say \"Thanks\" To end the talk.    |")
+            print("|====================================|")
+            
+            
+            while True:
+                inquiry = str(get_answer("Inquiry: "))
+                # cancels should the user enter "cancel"
+                if inquiry == False:
+                    return False
+                inquiry = inquiry.lower()
+                if "FAQ" in inquiry.upper():
+                    print("\nWelcome to the FAQ Page. it has basic questions and answers\n")
+                    print("Question 1: How do I create a project?")
+                    print("Answer: You can create a project by typing \"-create\" or \"--create\" or for short, \"-c\"\n")
+                    print("Question 2: How do I view or select a project?")
+                    print("Answer: You can view or select a project by typing \"-view\" or \"-select\" or if you want to keep it short, \"-v\"\n")
+                    print("Question 3: How do I delete a project?")
+                    print("Answer: You can delete a project by typing \"-delete\" or \"--delete\"\n")
+                    print("Question 4: How do I exit the program?")
+                    print("Answer: You can exit the program by typing \"-exit\" or \"--exit\"\n")
+                    print("Question 5: How do I clear the console?")
+                    print("Answer: You can clear the console by typing \"CLS\"\n")
+                    print("Question 6: How do I view all my projects")
+                    print("Answer: You can view all your projects by typing \"-viewall\" or \"--viewall\" or if you want to keep it short, \"-va\"\n")
+                    print("Question 7: How do I report a problem?")
+                    print("Answer: You can report a problem by going to our github page and creating an issue.\nhttps://github.com/Ames-hub/Project-Manager/issues\n")
+                elif "thanks" in inquiry:
+                    print("You're welcome!\n")
+                    application.sleep(3)
+                    break
+                elif "fuck" and "you" in inquiry:
+                    print(":(")
+                    application.sleep(3)
+                    break
+                else:
+                    print("Yeah, this help command was not expanded much.")
+
         # Handles exiting (Done)
         elif any(request.startswith(s) for s in ["-exit", "-quit"]) or request in ["exit", "quit"]:
             log("Received 'exit' or 'quit' request")
             application.exit()
-
+        # Handles viewing ALL projects
+        elif any(request.startswith(s) for s in ["-viewall", "--viewall", "-vwa", "--vwa"]):
+            log("Received 'viewall' request")
+            print("Here's all your projects!\n")
+            application.projects.print_all()
         # Handles view/select requests (Done)
         elif any(request.startswith(s) for s in ["-view", "--view", "-select", "--select", "-display", "--display", "-v", "--v", "-d", "--d", "-s", "--s"]):
             log("Received 'view' request")
@@ -85,6 +143,9 @@ class application:
                 while True:
                     application.projects.print_all()
                     request = get_answer("Which project would you like to view? (name or number) : ")
+                    # cancels should the user enter "cancel"
+                    if inquiry.lower() == False:
+                        return False
                     if request != " " or "" or None:
                         break
 
@@ -118,9 +179,11 @@ class application:
                     application.projects.select(project_id=project)
                     return True
             # End of handling
-
         # Handles new project requests (Done)
         elif any(request.startswith(s) for s in ["-new", "--new", "-n", "--n", "-create", "--create", "-c", "--c"]):
+
+            application.projects.delete_missing_projects()
+
             # Prepares for checking if the project already exists
             current_projects = application.json.getvalue(key="managed_projects", json_dir="data/appdata.json", default=None, dt=appdata_dt)
             # actually checks it
@@ -137,12 +200,41 @@ class application:
             # Handles finding the name arg. Always runs
             if True:
                 name = application.arguments.get_arg(arg="name", request=request)
+                if name == False:
+                    name = application.arguments.get_arg(arg="project", request=request)
+                if name == False:
+                    name = application.arguments.get_arg(arg="id", request=request)
                 description = application.arguments.get_arg(arg="description", request=request)
+                if description == False:
+                    description = application.arguments.get_arg(arg="desc", request=request)
+                if description == False:
+                    description = application.arguments.get_arg(arg="d", request=request)
 
 
             application.projects.create(name, description)
+            print("Created project \""+ name +"\"!")
+        # Handles deleting projects (Unfinished)
+        elif any(request.startswith(s) for s in ["-delete", "--delete", "-remove", "--remove", "-del", "--del", "-rm", "--rm"]):
+            log("Received 'delete' request")
 
+            # 3 Alias's for the name arg.
+            target_project = application.arguments.get_arg(arg="project", request=request)
+            if target_project == False:
+                target_project = application.arguments.get_arg(arg="name", request=request)
+            if target_project == False:
+                target_project = application.arguments.get_arg(arg="id", request=request)
 
+            # If the user didn't specify a project, it will ask for one
+            if target_project == False:
+                while True:
+                    application.projects.print_all()
+                    target_project = get_answer("Which project would you like to delete? (name or number) : ")
+
+            import inspect
+            raise NotImplementedError("This feature is not yet implemented. Line: "+str(inspect.currentframe().f_lineno))
+
+            current_projects = application.json.getvalue(key="managed_projects", json_dir="data/appdata.json", default=None, dt=appdata_dt)
+            
 
         else:
             del current_projects
@@ -156,6 +248,9 @@ class application:
 
         # Handles "Impatience" Mode
         impatience = get_answer("Would you like to enable impatience mode?\nThis mode disables all unneeded delays\nbut can make the app a bit harder to confront in my opinion\nYou can always toggle this by typing 'darin-settings' then 'impatience (on/off)'\n\nWould you like impatience 'On' or 'Off'? : ")
+        # cancels should the user enter "cancel"
+        if impatience.lower() == False:
+            return False
 
         # F in impatience for "oFF"
         if "f" in impatience:
@@ -201,14 +296,18 @@ class application:
         print("Great! Everything is setup! However, before we start we should go over a piece of important information.\nWithout knowing this, you may not be able to use the app properly.\n")
         while True:
             answer = get_answer("Tell me the information! (Yes/No) : ")
+            if answer == False:
+                return False
             answer = answer.lower()
             if answer == "yes":
                 print("\n\nOk! So the app uses something called 'args' to perform certain tasks.")
                 print('For example, if you wanted to create a new project, you would want to type\n``-create name:"Fanceh Calculator" description:"A calculator that can do fancy things"``')
-                get_answer("\nPress enter to continue...\n")
+                if get_answer("\nPress enter to continue...\n") == False:
+                    return False
                 print("The args are the things after the command. In this case, the args are 'name:\"Fanceh Calculator\"' and 'description:\"A calculator that can do fancy things\"'.")
                 print("The command is the thing that tells the app what to do. In this case, the command is 'create' with a \"-\" at the start to signify that it is a Command.")
-                get_answer("Press enter to continue...")
+                if get_answer("Press enter to continue...") == False:
+                    return False
                 print("Ok, That's about it. Have fun!")
                 application.sleep(3)
                 break
@@ -232,6 +331,22 @@ class application:
             time.sleep(float(length))
         else:
             return False
+
+    def print_percentage(current_line, def_length, message="Working..."):
+        '''Prints the percentage of the current line to the default length.'''
+        percentage = int((current_line/def_length)*100)
+        if message == False:
+            return True
+        print("\r"+message+" "+str(percentage)+"%", end="")
+
+    class console:
+        def clear():
+            try:
+                os.system("cls" if os.name == "nt" else "clear")
+                return True
+            except:
+                print("WARNING! Your OS is not supported!")
+                return False
 
     class preferences:
         def get_askexit():
@@ -301,6 +416,8 @@ class application:
             print("Please select the number of the option you would like to select.")
             while True:
                 choice = get_answer("Enter choice: ")
+                if choice == False:
+                    return False
                 for i in choice:
                     # Can't use try-except because it causes problems T.T
                     # And if I can, I can't be fucked figuring it out.
@@ -324,6 +441,8 @@ class application:
 
                     while True:
                         choice = get_answer("Enter choice: ")
+                        if choice == False:
+                            return False
                         for i in choice:
                             # Can't use try-except because it causes problems T.T
                             # And if I can, I can't be fucked figuring it out.
@@ -337,7 +456,8 @@ class application:
                     if choice == '1':
                         if len(todo_list) == 0:
                             print("No items in list.")
-                            get_answer("Press enter to continue...")
+                            if get_answer("Press enter to continue...") == False:
+                                return False
                         elif len(todo_list) >= 1:
                             iterance = 1
                             for item in todo_list:
@@ -345,7 +465,8 @@ class application:
                                 print(f"Task/Todo {str(iterance)}: " + str(item) + "\n/   /   /   /   /   /   /   /")
                                 iterance = int(iterance) + 1
                             print("\nThat's all the items in the list.")
-                            get_answer("Press enter to continue...")
+                            if get_answer("Press enter to continue...") == False:
+                                return False
                     # Add Item
                     elif choice == '2':
                         if len(todo_list) == 0:
@@ -358,11 +479,14 @@ class application:
                                 iterance = int(iterance) + 1                    
                         print("What would you like to add to the list?")
                         item = str(get_answer("Enter Item: "))
+                        if item == False:
+                            return False
                         application.projects.todo.add_todo(
                             project_name=project_id,
                             todo_task=item
                         )
-                        get_answer("Press enter to continue...")
+                        if get_answer("Press enter to continue...") == False:
+                            return False
                     # Remove Item
                     elif choice == '3':
                         if len(todo_list) == 0:
@@ -375,6 +499,8 @@ class application:
                                 iterance = int(iterance) + 1                    
                         print("What would you like to remove from the list? (counting starts at 0 or enter the specific task)")
                         item = get_answer("Enter Item: ")
+                        if item == False:
+                            return False
                         if str(item).isnumeric() == False:
                             item = str(item)
                         else:
@@ -384,13 +510,16 @@ class application:
                                 project_name=project_id,
                                 todo_task=item
                             )
-                        get_answer("Press enter to continue...")
+                        if get_answer("Press enter to continue...") == False:
+                            return False
                     # Clear List
                     elif choice == '4':
                     
                         try:
                             while True:
                                 confirmation = get_answer("Are you sure you want to clear the list?\nThis action cannot be undone (Yes/No)")
+                                if confirmation == False:
+                                    return False
                                 confirmation = confirmation.lower()
                                 if confirmation != "yes" and confirmation != "no":
                                     print("Invalid input. Please try again.")
@@ -401,7 +530,8 @@ class application:
                                     break
                         except KeyboardInterrupt:
                             print("\nCancelled.")
-                            get_answer("Press enter to continue...")
+                            if get_answer("Press enter to continue...") == False:
+                                return False
                             break    
                             
                         # if confirmation is yes, clear the list
@@ -415,7 +545,8 @@ class application:
                                 )
                             application.projects.delete_missing_projects(print=False)
                             print("\nCleared list.")
-                            get_answer("Press enter to continue...")
+                            if get_answer("Press enter to continue...") == False:
+                                return False
                     # Exit Selection
                     elif choice == '5':
                         print("Exiting selection of "+project_id+"...")
@@ -489,6 +620,13 @@ class application:
                 name = get_answer("What would you like to call the project? : ")
             if description == False:
                 description = get_answer("How would you describe the project? : ")
+            if name or description == False:
+                return False
+
+            # Gets how many lines long the def is
+            def_length = len(inspect.getsourcelines(application.projects.create)[0])
+            # Prints a percentage of how far along the program is for writing the project
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
 
             # Creates the project using getvalue's "create file if not exist"
             application.json.getvalue(
@@ -497,7 +635,7 @@ class application:
                 default=None,
                 dt=new_project_dt
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             # Adds the project to the list of managed projects
             application.json.addvalue(
                 key="managed_projects",
@@ -505,7 +643,7 @@ class application:
                 value=name,
                 dt=appdata_dt,
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             # Sets the name of the project
             application.json.setvalue(
                 key="project.name",
@@ -513,7 +651,7 @@ class application:
                 value=name,
                 dt=new_project_dt
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             # Sets the description of the project
             application.json.setvalue(
                 key="project.description",
@@ -521,14 +659,14 @@ class application:
                 value=description,
                 dt=new_project_dt
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             # Gets the highest current ID
             highest_id = application.json.getvalue(
                 key="highest",
                 json_dir="data/projects/.highest_tracker.json",
                 dt=highest_project_tracker_dt
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
 
             highest_id = int(highest_id)
             # Adds 1 to the highest ID
@@ -541,7 +679,7 @@ class application:
                 value=highest_id,
                 dt=new_project_dt
             )
-            
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             # Updates the highest ID
             application.json.setvalue(
                 key="highest",
@@ -549,10 +687,10 @@ class application:
                 value=highest_id,
                 dt=highest_project_tracker_dt
             )
-
+            application.print_percentage(current_line=inspect.currentframe().f_lineno, total_lines=def_length, message="Creating project \""+name+"\"...")
             print("Project created! You can now select/view it when desired\n")
 
-        def delete_missing_projects(print=True):
+        def delete_missing_projects(printt=True):
             # Get the current list of managed projects from the appdata JSON file
             current_projects = application.json.getvalue(key="managed_projects", json_dir="data/appdata.json", default=None, dt=appdata_dt)
 
@@ -560,7 +698,9 @@ class application:
             managed_projects = current_projects
             managed_projects = list(managed_projects)
 
+            
             # Iterate over each project in the list
+            deleted = False
             for project in current_projects:
                 # Get the path to the project's JSON file
                 project_json_path = os.path.join("data/projects/"+project+".json")
@@ -568,9 +708,13 @@ class application:
                 # If the JSON file doesn't exist, remove the project from the managed projects list
                 if not os.path.exists(project_json_path):
                     managed_projects.remove(project)
-                    if print == True:
+                    if printt == True:
                         print("Removed project from managed projects as it did not exist anymore: " + project)
                     log("Removed project from managed projects as it did not exist anymore: " + project)
+                    deleted = True
+            else:
+                if printt == True and deleted == True:
+                    print("\n")
 
             # Update the "managed_projects" key in the appdata JSON file with the updated list
             application.json.setvalue(
@@ -1098,12 +1242,15 @@ hint_or_help_msg = 'If you need help, type "darin-help" or "darin-hint"\nRemembe
 application.projects.delete_missing_projects()
 
 # Handles the actions of the user
+os.system("cls" if os.name == "nt" else "clear")
 action_handler_response = True
 while True:
     try:
         if action_handler_response == True:
             print(hint_or_help_msg)
         question_response = get_answer("Hello! "+name_of_app+" is here, How can I help you today?\n- ")
+        if question_response == False:
+            application.exit()
         action_handler_response = application.Action_Handler(question_response)
         application.projects.delete_missing_projects()
     except KeyboardInterrupt:
